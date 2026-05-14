@@ -79,3 +79,34 @@ def test_run_omits_admin1_when_absent(mock_get):
     result = WeatherTool()._run(city="Tokyo")
     assert "Weather in Tokyo, Japan" in result
     assert "Mainly clear" in result
+
+
+@patch("weather_tool.tool.requests.get")
+def test_run_city_not_found(mock_get):
+    m = MagicMock()
+    m.ok = True
+    m.json.return_value = {"results": []}
+    mock_get.return_value = m
+    result = WeatherTool()._run(city="Xyzabc123")
+    assert "Could not find city: 'Xyzabc123'" in result
+    assert "spelling" in result
+
+
+@patch("weather_tool.tool.requests.get")
+def test_run_geocoding_api_error(mock_get):
+    m = MagicMock()
+    m.ok = False
+    m.status_code = 500
+    mock_get.return_value = m
+    result = WeatherTool()._run(city="London")
+    assert "Weather API error (500)" in result
+
+
+@patch("weather_tool.tool.requests.get")
+def test_run_weather_api_error(mock_get):
+    weather_err = MagicMock()
+    weather_err.ok = False
+    weather_err.status_code = 503
+    mock_get.side_effect = [_geo_mock(), weather_err]
+    result = WeatherTool()._run(city="London")
+    assert "Weather API error (503)" in result
