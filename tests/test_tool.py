@@ -1,4 +1,6 @@
-from weather_tool.tool import WeatherInput, WMO_CODES
+from unittest.mock import MagicMock, patch
+
+from weather_tool.tool import WeatherInput, WMO_CODES, WeatherTool
 
 
 def test_weather_input_accepts_city():
@@ -28,3 +30,52 @@ def test_wmo_codes_covers_all_standard_codes():
         95, 96, 99,
     }
     assert expected.issubset(set(WMO_CODES.keys()))
+
+
+def _geo_mock(name="London", admin1="England", country="United Kingdom", lat=51.5, lon=-0.12):
+    m = MagicMock()
+    m.ok = True
+    m.json.return_value = {
+        "results": [
+            {"name": name, "admin1": admin1, "country": country, "latitude": lat, "longitude": lon}
+        ]
+    }
+    return m
+
+
+def _weather_mock(temp=18.4, feels=17.1, humidity=62, wind=14.2, code=0):
+    m = MagicMock()
+    m.ok = True
+    m.json.return_value = {
+        "current": {
+            "temperature_2m": temp,
+            "apparent_temperature": feels,
+            "relative_humidity_2m": humidity,
+            "wind_speed_10m": wind,
+            "weather_code": code,
+        }
+    }
+    return m
+
+
+@patch("weather_tool.tool.requests.get")
+def test_run_returns_formatted_weather(mock_get):
+    mock_get.side_effect = [_geo_mock(), _weather_mock()]
+    result = WeatherTool()._run(city="London")
+    assert "Weather in London, England, United Kingdom" in result
+    assert "Clear sky" in result
+    assert "18.4°C" in result
+    assert "17.1°C" in result
+    assert "62%" in result
+    assert "14.2 km/h" in result
+
+
+@patch("weather_tool.tool.requests.get")
+def test_run_omits_admin1_when_absent(mock_get):
+    mock_get.side_effect = [
+        _geo_mock(name="Tokyo", admin1=None, country="Japan", lat=35.68, lon=139.69),
+        _weather_mock(temp=22.0, feels=21.5, humidity=70, wind=10.0, code=1),
+    ]
+    result = WeatherTool()._run(city="Tokyo")
+    assert "Weather in Tokyo, Japan" in result
+    assert "Mainly clear" in result
