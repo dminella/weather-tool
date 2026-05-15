@@ -62,10 +62,11 @@ class WeatherTool(BaseTool):
                 return f"Could not find city: '{city}'. Please check the spelling and try again."
 
             location = results[0]
-            parts = [location["name"]]
+            parts = [location.get("name", city)]
             if location.get("admin1"):
                 parts.append(location["admin1"])
-            parts.append(location["country"])
+            if location.get("country"):
+                parts.append(location["country"])
             display_name = ", ".join(parts)
 
             weather_resp = requests.get(
